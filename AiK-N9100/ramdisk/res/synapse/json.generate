@@ -1,0 +1,13 @@
+#!/sbin/busybox sh
+
+cat << CTAG
+
+{
+    sections: [
+        `. /res/synapse/json.gen.info`,
+        `. /res/synapse/json.gen.status`,
+		`. /res/synapse/json.gen.storage`,
+    ]
+}
+CTAG
+
