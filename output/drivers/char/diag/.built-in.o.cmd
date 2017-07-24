@@ -1,1 +1,0 @@
-cmd_drivers/char/diag/built-in.o :=  /home/N910C_MM/arm-eabi-4.8/bin/arm-eabi-ld -EL    -r -o drivers/char/diag/built-in.o drivers/char/diag/diagchar.o drivers/char/diag/diagfwd_bridge.o drivers/char/diag/diagfwd_hsic.o drivers/char/diag/diagfwd_smux.o 
