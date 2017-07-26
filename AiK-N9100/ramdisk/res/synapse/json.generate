@@ -6,7 +6,7 @@ cat << CTAG
     sections: [
         `. /res/synapse/json.gen.info`,
         `. /res/synapse/json.gen.status`,
-		`. /res/synapse/json.gen.storage`,
+		`. /res/synapse/json.gen.screen-dt2w-2`,
     ]
 }
 CTAG

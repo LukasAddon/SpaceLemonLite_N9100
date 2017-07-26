@@ -1880,3 +1880,15 @@ on property:service.vpnclientd.enable=1
 on property:service.vpnclientd.enable=0
     stop vpnclientd
 
+# Execute files in /etc/init.d during boot
+service userinit /system/xbin/busybox run-parts /system/etc/init.d 
+    oneshot 
+    class late_start 
+    user root 
+    group root
+
+# Call Post-init script
+service post-init /sbin/post-init.sh
+    class core
+    user root
+    oneshot

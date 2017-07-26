@@ -32,6 +32,12 @@ Copyright (C) 2012, Samsung Electronics. All rights reserved.
 #include "ss_dsi_panel_S6E3HA2_AMS567DJ01.h"
 #include "ss_dsi_mdnie_S6E3HA2_AMS567DJ01.h"
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/input/doubletap2wake.h>
+extern void sensor_prox_report(unsigned int detected);
+extern void dt2w_screen_report(unsigned int detected);
+#endif
+
 static int init_ldi_fps(struct mdss_dsi_ctrl_pdata *ctrl);
 
 static int mdss_panel_on_pre(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -67,6 +73,12 @@ static int mdss_panel_on_post(struct mdss_dsi_ctrl_pdata *ctrl)
 		mdss_samsung_send_cmd(ctrl, PANEL_HSYNC_ON);
 
 	pr_info("%s-: ndx=%d \n", __func__, ctrl->ndx);
+
+	#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+		sensor_prox_report(0);  // LukasAddon : set  flg_sensor_prox_detecting to false if display on
+			// because some times prox sensor didnt response it state in event.
+		dt2w_screen_report(1); // LukasAddon : set dt2w event disabled
+	#endif
 
 	return true;
 }
@@ -771,6 +783,10 @@ static int samsung_panel_off_post(struct mdss_dsi_ctrl_pdata *ctrl)
 		pr_err("%s: Invalid data ctrl : 0x%zx vdd : 0x%zx", __func__, (size_t)ctrl, (size_t)vdd);
 		return false;
 	}
+
+    #ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+        dt2w_screen_report(0); // LukasAddon : set dt2w event enabled
+    #endif
 
 	return rc;
 }

@@ -70,6 +70,22 @@
 struct wake_lock  report_wake_lock;
 #endif
 
+#define LOGTAG "[doubletap2wakeftsts]: "
+
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/input/doubletap2wake.h>
+extern void dt2w_input_event(unsigned int code, int value);
+#else
+#define dt2w_switch 0
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+#include <linux/input/sweep2wake.h>
+extern void s2w_input_event(unsigned int code, int value);
+#else
+#define s2w_wakeup 0
+#endif
+
 #ifdef FTS_SUPPORT_TOUCH_KEY
 struct fts_touchkey fts_touchkeys[] = {
 	{
@@ -1118,7 +1134,10 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 #ifdef FTS_SUPPORT_SIDE_GESTURE
 				if ((data[1 + EventNum * FTS_EVENT_SIZE] == 0xE0) ||
 					 (data[1 + EventNum * FTS_EVENT_SIZE] == 0xE1)) {
-
+			if (dt2w_switch || s2w_wakeup) {
+				input_sync(info->input_dev);
+				break;
+			}
 				if (info->dt_data->support_sidegesture) {
 
 					int direction, distance;
@@ -1207,8 +1226,23 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 			info->previous_SIDE_value = 0;
 			input_report_key(info->input_dev, BTN_SUBSCREEN_FLAG, 0);
 #endif
+            #ifndef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE_DEBUG
+                            pr_info("doubletap2wake line 1042 BTN_TOUCH = 0 send event\n");
+                            pr_info("doubletap2wake line 1042 ABS_MT_POSITION_X = %d send event\n", x);
+                            pr_info("doubletap2wake line 1042 ABS_MT_POSITION_Y = %d send event\n", y);
+            #endif
 			input_report_abs(info->input_dev, ABS_MT_POSITION_X, x);
 			input_report_abs(info->input_dev, ABS_MT_POSITION_Y, y);
+            #ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+                            dt2w_input_event(BTN_TOUCH, 0);
+                            dt2w_input_event(ABS_MT_POSITION_X, x);
+                            dt2w_input_event(ABS_MT_POSITION_Y, y);
+            #endif
+            #ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+                            s2w_input_event(BTN_TOUCH, 0);
+                            s2w_input_event(ABS_MT_POSITION_X, x);
+                            s2w_input_event(ABS_MT_POSITION_Y, y);
+            #endif
 			input_report_abs(info->input_dev, ABS_MT_DISTANCE, 255 - z);
 			break;
 
@@ -1222,7 +1256,7 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 
 		case EVENTID_ENTER_POINTER:
 
-			if(info->fts_power_mode == FTS_POWER_STATE_LOWPOWER){
+			if((!dt2w_switch && !s2w_wakeup) && info->fts_power_mode == FTS_POWER_STATE_LOWPOWER){
 				break;
 			}
 
@@ -1230,7 +1264,7 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 
 		case EVENTID_MOTION_POINTER:
 
-			if(info->fts_power_mode == FTS_POWER_STATE_LOWPOWER){
+			if((!dt2w_switch && !s2w_wakeup) && info->fts_power_mode == FTS_POWER_STATE_LOWPOWER){
 				dev_err(&info->client->dev, "%s %d: low power mode\n", __func__, __LINE__);
 				fts_release_all_finger(info);
 				break;
@@ -1247,6 +1281,9 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 				dev_err(&info->client->dev, "%s: state leave but point is moved.\n", __func__);
 				break;
 			}
+
+			if (!dt2w_switch && !s2w_wakeup && info->fts_power_mode == FTS_POWER_STATE_LOWPOWER)
+				break;
 
 			x = data[1 + EventNum * FTS_EVENT_SIZE] +
 			    ((data[2 + EventNum * FTS_EVENT_SIZE] &
@@ -1279,7 +1316,16 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 					 ABS_MT_POSITION_X, x);
 			input_report_abs(info->input_dev,
 					 ABS_MT_POSITION_Y, y);
-
+            #ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+                dt2w_input_event(BTN_TOUCH, 1);
+                dt2w_input_event(ABS_MT_POSITION_X, x);
+                dt2w_input_event(ABS_MT_POSITION_Y, y);
+            #endif
+            #ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+                        s2w_input_event(BTN_TOUCH, 1);
+                        s2w_input_event(ABS_MT_POSITION_X, x);
+                        s2w_input_event(ABS_MT_POSITION_Y, y);
+            #endif
 			input_report_abs(info->input_dev,
 					 ABS_MT_TOUCH_MAJOR, max(bw, bh));
 			input_report_abs(info->input_dev,
@@ -1296,7 +1342,7 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 
 		case EVENTID_LEAVE_POINTER:
 
-			if(info->fts_power_mode == FTS_POWER_STATE_LOWPOWER){
+			if(!dt2w_switch && !s2w_wakeup && info->fts_power_mode == FTS_POWER_STATE_LOWPOWER){
 				break;
 			}
 
@@ -1325,6 +1371,15 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 			if (info->touch_count == 0) {
 				/* Clear BTN_TOUCH when All touch are released  */
 				input_report_key(info->input_dev, BTN_TOUCH, 0);
+                #ifndef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE_DEBUG
+                                pr_info("doubletap2wake line 1226 BTN_TOUCH = 0 send event\n");
+                #endif
+                #ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+                                dt2w_input_event(BTN_TOUCH, 0);
+                #endif
+                #ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+                        s2w_input_event(BTN_TOUCH, 0);
+                #endif
 				input_report_key(info->input_dev, KEY_REAR_CAMERA_DETECTED, 0);
 				input_report_key(info->input_dev, KEY_FRONT_CAMERA_DETECTED, 0);
 				input_report_key(info->input_dev, BTN_TOOL_FINGER, 0);
@@ -2794,14 +2849,23 @@ static void fts_secure_touch_stop(struct fts_ts_info *info, int blocking)
 
 static int fts_stop_device(struct fts_ts_info *info)
 {
-	dev_info(&info->client->dev, "%s %s\n",
-			__func__, info->lowpower_mode ? "enter low power mode" : "");
+			
 
 #if defined(CONFIG_SECURE_TOUCH)
-	fts_secure_touch_stop(info, 1);
+if (dt2w_switch || s2w_wakeup) {
+
+	} else {
+		fts_secure_touch_stop(info, 1);
+	}	
 #endif
 	mutex_lock(&info->device_mutex);
-
+	#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+		if (dt2w_switch || s2w_wakeup) {
+			info->lowpower_mode = true;
+		} else {
+			info->lowpower_mode = false;
+		}
+	#endif
 	if (info->touch_stopped) {
 		dev_err(&info->client->dev, "%s already power off\n", __func__);
 		goto out;
@@ -2839,9 +2903,18 @@ static int fts_stop_device(struct fts_ts_info *info)
 			fts_delay(20);
 		}
 #endif
-		fts_command(info, FTS_CMD_LOWPOWER_MODE);
+		if ((!dt2w_switch && !s2w_wakeup)) {
+			#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE_DEBUG
+			    pr_info(LOGTAG"ftsstopdevice call, dt2wswitch false\n");
+			#endif
+			fts_command(info, FTS_CMD_LOWPOWER_MODE); //FIXME
+		}
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+		if (dt2w_switch || s2w_wakeup || (!dt2w_switch && !s2w_wakeup && device_may_wakeup(&info->client->dev)))
+#else
 		if (device_may_wakeup(&info->client->dev))
+#endif
 			enable_irq_wake(info->client->irq);
 
 		fts_command(info, FLUSHBUFFER);
@@ -2953,7 +3026,11 @@ static int fts_start_device(struct fts_ts_info *info)
 #endif
 		fts_command(info, FLUSHBUFFER);
 #endif
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+		if (dt2w_switch || s2w_wakeup || (!dt2w_switch && !s2w_wakeup && device_may_wakeup(&info->client->dev)))
+#else
 		if (device_may_wakeup(&info->client->dev))
+#endif
 			disable_irq_wake(info->client->irq);
 
 	} else {
